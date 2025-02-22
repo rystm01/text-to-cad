@@ -110,24 +110,11 @@ class Agent:
     """
     accepts an image, improves based on it
     """
-    image = prepare_img(image)
+    image_msg = prepare_img(image, self.model)
     prompt = "Identify all the things wrong with your previous design and fix them. " + prompt
 
-    new_msg = {"role" : "user", 
-               "content" : [
-                {
-                    "type" : "text", 
-                    "text" : prompt 
-                 },
-                {
-                  "type" : "image_url",
-                  "image_url": {
-                    "url": f"data:image/jpeg;base64,{image}"
-                  }
-                }
-               ]
-              }
-    self.messages.append(new_msg)
+    image_msg["content"].append( {"type": "text", "text": prompt})
+    self.messages.append(image_msg)
     try:
       print(self.model)
 
@@ -173,12 +160,37 @@ def extract_code_blocks(text):
   code_blocks = re.search(r"```(?:\w+)?\n(.*?)\n```", text, re.DOTALL)
   return code_blocks
 
-def prepare_img(image):
+def prepare_img(image, model):
   image = image.convert('RGB')
   buffered = BytesIO()
   image.save(buffered, format="JPEG")
   img_bytes = buffered.getvalue()
   
   base64_image = base64.b64encode(img_bytes).decode('utf-8')
-  return base64_image
+
+  if model in Agent.anthropic_models:
+    msg = {"role": "user", "content": [
+    {
+      "type": "image",
+      "source": {
+        "type": "base64",
+        "media_type": "image/jpeg",
+        "data": base64_image,
+      }
+    },
+   
+  ]}
+  else:
+    msg = {"role" : "user", 
+               "content" : [
+                {
+                  "type" : "image_url",
+                  "image_url": {
+                    "url": f"data:image/jpeg;base64,{image}"
+                  }
+                }
+               ]
+              }
+
+  return msg
 
