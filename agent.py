@@ -8,6 +8,7 @@ import base64
 from io import BytesIO
 from PIL import ImageGrab, Image
 import json
+import traceback
 
 
 
@@ -80,15 +81,18 @@ class Agent:
       elif self.model in Agent.anthropic_models:
         print(self.messages[0])
         print(self.messages[1:])
-        msgs = convert_openai_to_anthropic(self.messages)
-        print(msgs)
+        converted = convert_openai_to_anthropic(self.messages)
+        msgs = converted["messages"]
+        sys = converted["system"]
         response = self.client.messages.create(
           model=self.model,
           max_tokens=2048,
-          system=[msgs[0]],
-          messages=msgs[1:]
+          system=sys,
+          messages=msgs
         )
-        output = response.content.text
+        print(response.content[0])
+        output = response.content[0].text
+      self.messages.append({"role" : "assistant", "content" : output})
       
       scad_code = extract_code_blocks(output)[0]
       output = output.replace(scad_code, "")
@@ -109,6 +113,7 @@ class Agent:
       self.cad_process = subprocess.Popen(["openscad", f"scad_files\generated{self.num_iter}.scad"])
       self.num_iter+=1
     except Exception as e:
+      print(traceback.format_exc())
       self.explanations.append(f"Error: {e}\n")
 
    
@@ -145,13 +150,15 @@ class Agent:
         output = response.choices[0].message.content
 
       elif self.model in Agent.anthropic_models:
+        converted = convert_openai_to_anthropic(self.messages)
+        msgs = converted["messages"]
+        sys = converted["system"]
         response = self.client.messages.create(
           model=self.model,
           max_tokens=2048,
-          system=self.messages[0],
-          messages=self.messages[1:]
+          system=sys,
+          messages=msgs
         )
-        output = response.content.text
 
       output = response.choices[0].message.content
       self.messages.append({"role" : "assistant", "content" : output})
@@ -171,6 +178,7 @@ class Agent:
       self.cad_process = subprocess.Popen(["openscad", f"scad_files\generated{self.num_iter}.scad"])
       self.num_iter += 1
     except Exception as e:
+      print(traceback.format_exc()) 
       self.explanations.append(f"Error: {e}\n")
     
     
