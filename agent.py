@@ -6,6 +6,8 @@ import re
 import signal
 import base64
 from io import BytesIO
+from PIL import ImageGrab, Image
+import json
 
 
 
@@ -62,6 +64,7 @@ class Agent:
   def generate(self, prompt):
     # prompt = user_input.get("1.0", tk.END).strip()
 
+    prompt = "Please Generate openSCAD code for a " + prompt
     self.messages.append({"role" : "user", "content" : prompt})
     if not prompt:
       return "Please enter a description.\n"
@@ -77,11 +80,13 @@ class Agent:
       elif self.model in Agent.anthropic_models:
         print(self.messages[0])
         print(self.messages[1:])
+        msgs = convert_openai_to_anthropic(self.messages)
+        print(msgs)
         response = self.client.messages.create(
           model=self.model,
           max_tokens=2048,
-          system=self.messages[0],
-          messages=self.messages[1:]
+          system=[msgs[0]],
+          messages=msgs[1:]
         )
         output = response.content.text
       
@@ -100,16 +105,30 @@ class Agent:
       with open(f"scad_files/generated{self.num_iter}.scad", "w") as f:
         f.write(scad_code)
       
+      
       self.cad_process = subprocess.Popen(["openscad", f"scad_files\generated{self.num_iter}.scad"])
+      self.num_iter+=1
     except Exception as e:
       self.explanations.append(f"Error: {e}\n")
 
-    self.num_iter+=1
+   
   
-  def iterate(self, prompt, image):
+  def iterate(self, prompt, image=None):
     """
     accepts an image, improves based on it
     """
+    
+    
+    # save_path = f"./ss{self.num_iter}"
+    # snapshot.save(save_path)
+
+    if not image:
+      r = subprocess.run(["powershell", "./screenshot.ps1"], capture_output=True)
+      print(r.returncode)
+      print(r.stdout)
+
+      image = Image.open("./screenshot.jpg")
+
     image_msg = prepare_img(image, self.model)
     prompt = "Identify all the things wrong with your previous design and fix them. " + prompt
 
@@ -135,13 +154,14 @@ class Agent:
         output = response.content.text
 
       output = response.choices[0].message.content
+      self.messages.append({"role" : "assistant", "content" : output})
       scad_code = extract_code_blocks(output)[0]
       output = output.replace(scad_code, "")
       scad_code = scad_code.replace("openscad", "")
       scad_code = scad_code.replace("scad", "")
       scad_code = scad_code.replace("```", "")
 
-
+      
       
       self.explanations.append(output)
       self.scad_codes.append(scad_code)
@@ -149,11 +169,11 @@ class Agent:
         f.write(scad_code)
       
       self.cad_process = subprocess.Popen(["openscad", f"scad_files\generated{self.num_iter}.scad"])
-
+      self.num_iter += 1
     except Exception as e:
       self.explanations.append(f"Error: {e}\n")
     
-    self.num_iter += 1
+    
 
 
 def extract_code_blocks(text):
@@ -186,11 +206,58 @@ def prepare_img(image, model):
                 {
                   "type" : "image_url",
                   "image_url": {
-                    "url": f"data:image/jpeg;base64,{image}"
+                    "url": f"data:image/jpeg;base64,{base64_image}"
                   }
                 }
                ]
               }
 
   return msg
+
+def convert_openai_to_anthropic(messages):
+    """
+    Convert OpenAI message format to Anthropic message format.
+    
+    OpenAI format:
+    [
+        {"role": "system", "content": "you are a helpful assistant"},
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there!"}
+    ]
+    
+    Anthropic format:
+    {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Hello"
+            },
+            {
+                "role": "assistant",
+                "content": "Hi there!"
+            }
+        ],
+        "system": "you are a helpful assistant"  # Only if system message exists
+    }
+    """
+    anthropic_messages = []
+    system_message = None
+    
+    for message in messages:
+        if message["role"] == "system":
+            system_message = message["content"]
+        else:
+            # Map 'user' and 'assistant' roles directly
+            anthropic_messages.append({
+                "role": message["role"],
+                "content": message["content"]
+            })
+    
+    result = {"messages": anthropic_messages}
+    
+    # Only include system message if it exists
+    if system_message:
+        result["system"] = system_message
+        
+    return result
 

@@ -112,8 +112,8 @@ class OpenSCADGeneratorGUI:
         # Implementation for iteration logic
         self.agent.set_model(self.model_choice.get())
         prompt = self.iteration_prompt.get("1.0", tk.END).strip()
-        if not self.photo and prompt != "":
-            self.iteration_message.config(text="Please enter an Image or a prompt on how to improve the design")
+        # if not self.photo and prompt == "":
+        #     self.iteration_message.config(text="Please enter an Image or a prompt on how to improve the design")
         self.agent.iterate(prompt, self.image)
         self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
 
