@@ -112,6 +112,7 @@ class Agent:
       
       self.cad_process = subprocess.Popen(["openscad", f"scad_files\generated{self.num_iter}.scad"])
       self.num_iter+=1
+      print(self.messages)
     except Exception as e:
       print(traceback.format_exc())
       self.explanations.append(f"Error: {e}\n")
@@ -129,8 +130,8 @@ class Agent:
 
     if not image:
       r = subprocess.run(["powershell", "./screenshot.ps1"], capture_output=True)
-      print(r.returncode)
-      print(r.stdout)
+      # print(r.returncode)
+      # print(r.stdout)
 
       image = Image.open("./screenshot.jpg")
 
@@ -159,8 +160,9 @@ class Agent:
           system=sys,
           messages=msgs
         )
+        output = response.content[0].text
 
-      output = response.choices[0].message.content
+      # output = response.choices[0].message.content
       self.messages.append({"role" : "assistant", "content" : output})
       scad_code = extract_code_blocks(output)[0]
       output = output.replace(scad_code, "")

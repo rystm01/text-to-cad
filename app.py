@@ -1,6 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext, filedialog
-
+from tkinter import ttk, scrolledtext
 import shutil
 from agent import Agent
 from datetime import datetime
@@ -10,8 +9,9 @@ class OpenSCADGeneratorGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("OpenSCAD Generator")
+        self.root.configure(padx=20, pady=20)
         self.agent = None
-        self.photo = None  # Keep reference to prevent garbage collection
+        self.photo = None
         self.image = None
         
         self._init_ui_components()
@@ -19,63 +19,89 @@ class OpenSCADGeneratorGUI:
         self._init_agent()
         
     def _init_ui_components(self):
-        """Initialize all UI components"""
+        """Initialize all UI components with improved styling"""
+        # Create main frames for better organization
+        self.input_frame = ttk.LabelFrame(self.root, text="Input", padding="10")
+        self.output_frame = ttk.LabelFrame(self.root, text="Generated OpenSCAD Output Explanation", padding="10")
+        self.iteration_frame = ttk.LabelFrame(self.root, text="Design Iteration", padding="10")
+
         # Model selection
-        self.model_label = tk.Label(self.root, text="Choose a model:")
+        self.model_frame = ttk.Frame(self.input_frame)
+        self.model_label = ttk.Label(self.model_frame, text="Model:")
         self.model_choice = ttk.Combobox(
-            self.root,
-            values=["gpt-4o", "gpt-4o-mini", "o1-mini", "claude-3-5-sonnet-20241022"]
+            self.model_frame,
+            values=["gpt-4o", "gpt-4o-mini", "o1-mini", "claude-3-5-sonnet-20241022"],
+            width=30,
+            state="readonly"
         )
         self.model_choice.current(0)
         
         # Text input area
-        self.input_label = tk.Label(self.root, text="Enter description:")
-        self.user_input = scrolledtext.ScrolledText(self.root, width=50, height=5)
+        self.input_label = ttk.Label(self.input_frame, text="Enter your design description:")
+        self.user_input = scrolledtext.ScrolledText(
+            self.input_frame,
+            width=50,
+            height=5,
+            wrap=tk.WORD
+        )
 
-        self.iteration_label = tk.Label(self.root, text="Enter how you would like to improve/change:")
-        self.iteration_prompt = scrolledtext.ScrolledText(self.root, width=50, height=5)
-        self.iteration_message = tk.Label(self.root)
-        
-        # Buttons
-        self.generate_button = tk.Button(
-            self.root,
+        # Generate button
+        self.generate_button = ttk.Button(
+            self.input_frame,
             text="Generate & Preview",
             command=self._handle_generate
         )
-        self.upload_button = tk.Button(
-            self.root,
-            text="Upload Image of Preview",
-            command=self._handle_upload
+        
+        # Output area
+        self.output_text = scrolledtext.ScrolledText(
+            self.output_frame,
+            width=50,
+            height=10,
+            wrap=tk.WORD,
+            state='disabled'
         )
-        self.iterate_button = tk.Button(
-            self.root,
+        
+        # Iteration area
+        self.iteration_label = ttk.Label(
+            self.iteration_frame,
+            text="Describe how you would like to improve or modify the design:"
+        )
+        self.iteration_prompt = scrolledtext.ScrolledText(
+            self.iteration_frame,
+            width=50,
+            height=5,
+            wrap=tk.WORD
+        )
+        self.iterate_button = ttk.Button(
+            self.iteration_frame,
             text="Iterate on Design",
             command=self._handle_iterate
         )
-        
-        # Display areas
-        self.image_label = tk.Label(self.root)
-        self.status_label = tk.Label(self.root)
-        self.output_text = scrolledtext.ScrolledText(self.root, width=50, height=10)
+        self.iteration_message = ttk.Label(self.iteration_frame)
 
     def _setup_layout(self):
-        """Set up the layout of UI components"""
-        components = [
-            self.model_label,
-            self.model_choice,
-            self.input_label,
-            self.user_input,
-            self.generate_button,
-            self.upload_button,
-            self.iteration_prompt,
-            self.iterate_button,
-            self.iteration_message,
-            self.image_label,
-            self.output_text
-        ]
+        """Set up the layout with proper spacing and organization"""
+        # Model selection layout
+        self.model_frame.pack(fill=tk.X, pady=(0, 10))
+        self.model_label.pack(side=tk.LEFT)
+        self.model_choice.pack(side=tk.LEFT, padx=(10, 0))
         
-        for component in components:
-            component.pack()
+        # Input section layout
+        self.input_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        self.input_label.pack(anchor=tk.W, pady=(0, 5))
+        self.user_input.pack(fill=tk.BOTH, expand=True)
+        self.generate_button.pack(pady=(10, 0))
+        
+        # Output section layout
+        self.output_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        self.output_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Iteration section layout
+        self.iteration_frame.pack(fill=tk.BOTH, expand=True)
+        self.iteration_label.pack(anchor=tk.W, pady=(0, 5))
+        self.iteration_prompt.pack(fill=tk.BOTH, expand=True)
+        self.iterate_button.pack(pady=(10, 0))
+        self.iteration_message.pack(pady=(5, 0))
 
     def _init_agent(self):
         """Initialize the agent with selected model"""
@@ -83,39 +109,27 @@ class OpenSCADGeneratorGUI:
 
     def _handle_generate(self):
         """Handle generate button click"""
-        print("setting agent to ")
-        print(self.model_choice.get())
         self.agent.set_model(self.model_choice.get())
         user_text = self.user_input.get("1.0", tk.END).strip()
         self.agent.generate(user_text)
-        self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
-
-    def _handle_upload(self):
-        """Handle image upload"""
-        file_path = filedialog.askopenfilename(
-            filetypes=[("Image files", "*.png;*.jpg;*.jpeg;*.gif")]
-        )
         
-        if not file_path:
-            return
-            
-        try:
-            self.image = Image.open(file_path)
-            self.image.thumbnail((300, 300))  # Resize image
-            self.photo = ImageTk.PhotoImage(self.image)
-            self.image_label.config(image=self.photo)
-        except Exception as e:
-            self.status_label.config(text=f"Error: {e}")
+        # Update output text
+        self.output_text.configure(state='normal')
+        self.output_text.delete('1.0', tk.END)
+        self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
+        self.output_text.configure(state='disabled')
 
     def _handle_iterate(self):
         """Handle iteration button click"""
-        # Implementation for iteration logic
         self.agent.set_model(self.model_choice.get())
         prompt = self.iteration_prompt.get("1.0", tk.END).strip()
-        # if not self.photo and prompt == "":
-        #     self.iteration_message.config(text="Please enter an Image or a prompt on how to improve the design")
         self.agent.iterate(prompt, self.image)
+        
+        # Update output text
+        self.output_text.configure(state='normal')
+        self.output_text.delete('1.0', tk.END)
         self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
+        self.output_text.configure(state='disabled')
 
     def _handle_closing(self):
         """Handle window closing"""
