@@ -154,7 +154,9 @@ class OpenSCADGeneratorGUI:
     def _init_agent(self):
         """Initialize the agent with selected model"""
         self.agent = Agent(self.model_choice.get())
-        self._format_message("Assistant", "Hello! I'm your OpenSCAD design assistant. Describe what you'd like to create, and I'll help generate the OpenSCAD code. You can also ask me to modify or improve existing designs.")
+        self._format_message("Assistant", "Hello! I'm your OpenSCAD design assistant."
+                             " Describe what you'd like to create, and I'll help generate the OpenSCAD code." 
+                            " You can also ask me to modify or improve existing designs.")
 
     def _handle_send_message(self):
         """Handle sending a message"""

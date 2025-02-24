@@ -94,7 +94,7 @@ class Agent:
         output = response.content[0].text
       self.messages.append({"role" : "assistant", "content" : output})
       
-      scad_code = extract_code_blocks(output)[0]
+      scad_code = extract_code_block(output)[0]
       output = output.replace(scad_code, "")
       scad_code = scad_code.replace("openscad", "")
       scad_code = scad_code.replace("scad", "")
@@ -164,7 +164,7 @@ class Agent:
 
       # output = response.choices[0].message.content
       self.messages.append({"role" : "assistant", "content" : output})
-      scad_code = extract_code_blocks(output)[0]
+      scad_code = extract_code_block(output)[0]
       output = output.replace(scad_code, "")
       scad_code = scad_code.replace("openscad", "")
       scad_code = scad_code.replace("scad", "")
@@ -186,9 +186,9 @@ class Agent:
     
 
 
-def extract_code_blocks(text):
-  code_blocks = re.search(r"```(?:\w+)?\n(.*?)\n```", text, re.DOTALL)
-  return code_blocks
+def extract_code_block(text):
+  code_block = re.search(r"```(?:\w+)?\n(.*?)\n```", text, re.DOTALL)
+  return code_block
 
 def prepare_img(image, model):
   image = image.convert('RGB')
