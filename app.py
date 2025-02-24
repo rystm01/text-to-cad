@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 class OpenSCADGeneratorGUI:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("OpenSCAD Generator")
+        self.root.title("OpenSCAD Generator Chat")
         self.root.configure(padx=20, pady=20)
         self.agent = None
         self.photo = None
@@ -20,116 +20,101 @@ class OpenSCADGeneratorGUI:
         
     def _init_ui_components(self):
         """Initialize all UI components with improved styling"""
-        # Create main frames for better organization
-        self.input_frame = ttk.LabelFrame(self.root, text="Input", padding="10")
-        self.output_frame = ttk.LabelFrame(self.root, text="Generated OpenSCAD Output Explanation", padding="10")
-        self.iteration_frame = ttk.LabelFrame(self.root, text="Design Iteration", padding="10")
-
+        # Create main frames
+        self.settings_frame = ttk.Frame(self.root, padding="5")
+        self.chat_frame = ttk.LabelFrame(self.root, text="Chat", padding="10")
+        
         # Model selection
-        self.model_frame = ttk.Frame(self.input_frame)
-        self.model_label = ttk.Label(self.model_frame, text="Model:")
+        self.model_label = ttk.Label(self.settings_frame, text="Model:")
         self.model_choice = ttk.Combobox(
-            self.model_frame,
+            self.settings_frame,
             values=["gpt-4o", "gpt-4o-mini", "o1-mini", "claude-3-5-sonnet-20241022"],
             width=30,
             state="readonly"
         )
         self.model_choice.current(0)
         
-        # Text input area
-        self.input_label = ttk.Label(self.input_frame, text="Enter your design description:")
-        self.user_input = scrolledtext.ScrolledText(
-            self.input_frame,
-            width=50,
-            height=5,
-            wrap=tk.WORD
-        )
-
-        # Generate button
-        self.generate_button = ttk.Button(
-            self.input_frame,
-            text="Generate & Preview",
-            command=self._handle_generate
-        )
-        
-        # Output area
-        self.output_text = scrolledtext.ScrolledText(
-            self.output_frame,
-            width=50,
-            height=10,
+        # Chat history area
+        self.chat_history = scrolledtext.ScrolledText(
+            self.chat_frame,
+            width=60,
+            height=20,
             wrap=tk.WORD,
             state='disabled'
         )
         
-        # Iteration area
-        self.iteration_label = ttk.Label(
-            self.iteration_frame,
-            text="Describe how you would like to improve or modify the design:"
-        )
-        self.iteration_prompt = scrolledtext.ScrolledText(
-            self.iteration_frame,
+        # Message input area
+        self.input_frame = ttk.Frame(self.chat_frame)
+        self.message_input = scrolledtext.ScrolledText(
+            self.input_frame,
             width=50,
-            height=5,
+            height=3,
             wrap=tk.WORD
         )
-        self.iterate_button = ttk.Button(
-            self.iteration_frame,
-            text="Iterate on Design",
-            command=self._handle_iterate
+        self.send_button = ttk.Button(
+            self.input_frame,
+            text="Send",
+            command=self._handle_send_message
         )
-        self.iteration_message = ttk.Label(self.iteration_frame)
+        
+        # Bind Enter key to send message
+        self.message_input.bind('<Return>', lambda e: self._handle_send_message())
+        self.message_input.bind('<Shift-Return>', lambda e: 'break')  # Allow new lines with Shift+Enter
 
     def _setup_layout(self):
         """Set up the layout with proper spacing and organization"""
-        # Model selection layout
-        self.model_frame.pack(fill=tk.X, pady=(0, 10))
-        self.model_label.pack(side=tk.LEFT)
-        self.model_choice.pack(side=tk.LEFT, padx=(10, 0))
+        # Settings layout
+        self.settings_frame.pack(fill=tk.X, pady=(0, 10))
+        self.model_label.pack(side=tk.LEFT, padx=(0, 5))
+        self.model_choice.pack(side=tk.LEFT)
         
-        # Input section layout
-        self.input_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        self.input_label.pack(anchor=tk.W, pady=(0, 5))
-        self.user_input.pack(fill=tk.BOTH, expand=True)
-        self.generate_button.pack(pady=(10, 0))
+        # Chat frame layout
+        self.chat_frame.pack(fill=tk.BOTH, expand=True)
+        self.chat_history.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        # Output section layout
-        self.output_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        self.output_text.pack(fill=tk.BOTH, expand=True)
-        
-        # Iteration section layout
-        self.iteration_frame.pack(fill=tk.BOTH, expand=True)
-        self.iteration_label.pack(anchor=tk.W, pady=(0, 5))
-        self.iteration_prompt.pack(fill=tk.BOTH, expand=True)
-        self.iterate_button.pack(pady=(10, 0))
-        self.iteration_message.pack(pady=(5, 0))
+        # Input area layout
+        self.input_frame.pack(fill=tk.X)
+        self.message_input.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        self.send_button.pack(side=tk.RIGHT, fill=tk.Y)
 
     def _init_agent(self):
         """Initialize the agent with selected model"""
         self.agent = Agent(self.model_choice.get())
+        self._append_to_chat("Assistant: Hello! I'm your OpenSCAD design assistant. Describe what you'd like to create, and I'll help generate the OpenSCAD code. You can also ask me to modify or improve existing designs.\n")
 
-    def _handle_generate(self):
-        """Handle generate button click"""
-        self.agent.set_model(self.model_choice.get())
-        user_text = self.user_input.get("1.0", tk.END).strip()
-        self.agent.generate(user_text)
-        
-        # Update output text
-        self.output_text.configure(state='normal')
-        self.output_text.delete('1.0', tk.END)
-        self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
-        self.output_text.configure(state='disabled')
+    def _append_to_chat(self, message):
+        """Append a message to the chat history"""
+        self.chat_history.configure(state='normal')
+        self.chat_history.insert(tk.END, message + "\n")
+        self.chat_history.see(tk.END)
+        self.chat_history.configure(state='disabled')
 
-    def _handle_iterate(self):
-        """Handle iteration button click"""
-        self.agent.set_model(self.model_choice.get())
-        prompt = self.iteration_prompt.get("1.0", tk.END).strip()
-        self.agent.iterate(prompt, self.image)
+    def _handle_send_message(self):
+        """Handle sending a message"""
+        message = self.message_input.get("1.0", tk.END).strip()
+        if not message:
+            return 'break'
+            
+        # Clear input
+        self.message_input.delete("1.0", tk.END)
         
-        # Update output text
-        self.output_text.configure(state='normal')
-        self.output_text.delete('1.0', tk.END)
-        self.output_text.insert(tk.END, self.agent.explanations[-1] + "\n")
-        self.output_text.configure(state='disabled')
+        # Add user message to chat
+        self._append_to_chat(f"You: {message}")
+        
+        # Process message
+        self.agent.set_model(self.model_choice.get())
+        
+        # If this is the first design request, generate new design
+        if not self.agent.explanations:
+            self.agent.generate(message)
+        # Otherwise, iterate on existing design
+        else:
+            self.agent.iterate(message, self.image)
+            
+        # Add assistant's response to chat
+        self._append_to_chat(f"Assistant: {self.agent.explanations[-1]}")
+        
+        return 'break'  # Prevent default Enter key behavior
 
     def _handle_closing(self):
         """Handle window closing"""
